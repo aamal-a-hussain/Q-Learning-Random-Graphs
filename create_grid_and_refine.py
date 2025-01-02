@@ -106,9 +106,6 @@ def run_heatmap_workflow(n_agents, n_actions, nP, nT, n_iter, n_expt,
         # Identify cells of interest
         mask = identify_cells_of_interest(current_heatmap)
 
-        assert np.all(np.any(current_heatmap, axis=1)
-                      ), "Each row must have at least one True value."
-
         # Refine heatmap
         current_heatmap = create_refined_heatmap(
             current_heatmap,

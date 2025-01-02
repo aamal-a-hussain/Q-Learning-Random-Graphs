@@ -73,7 +73,15 @@ def identify_cells_of_interest(heatmap):
             # Fill everything between min and max position
             mask[i, true_positions[0]:true_positions[-1]+1] = True
 
-    return mask
+    # Mark cells in the row above any marked cells
+    # Create a copy of the mask to avoid affecting the iteration
+    above_mask = mask.copy()
+    for i in range(nP-1, 0, -1):  # Start from bottom row, move up
+        for j in range(nT):
+            if mask[i, j]:  # If cell is marked
+                above_mask[i-1, j] = True  # Mark cell above it
+
+    return above_mask
 
 
 # def identify_cells_of_interest(heatmap):
