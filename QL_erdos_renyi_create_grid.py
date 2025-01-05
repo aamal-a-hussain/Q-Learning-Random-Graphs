@@ -4,6 +4,7 @@ Created on Mon Dec 30 14:21:33 2024
 
 @author: dleon
 """
+from functools import partial
 
 import numpy as np
 import networkx as nx
@@ -11,7 +12,7 @@ from tqdm import tqdm
 import multiprocessing as mp
 import plotly.graph_objects as go
 import QL
-from networkgames import generate_edgeset, shapley, sato
+from networkgames import generate_edgeset, shapley, sato, conflict
 
 
 def process_single_cell(params):
@@ -19,7 +20,7 @@ def process_single_cell(params):
     Process a single cell with given parameters.
     Returns the non-convergence rate for the cell.
     """
-    p, T, n_agents, n_actions, n_iter, n_expt = params
+    p, T, n_agents, n_actions, n_iter, n_expt, game_type = params
     window_size = int(0.1 * n_iter)
     converged = 0
 
@@ -27,7 +28,20 @@ def process_single_cell(params):
         network = nx.erdos_renyi_graph(n_agents, p)
         edgeset = generate_edgeset(network)
         n_edges = network.number_of_edges()
-        game = shapley(n_edges=n_edges)
+
+        GAME_MAP = {
+            "shapley": shapley,
+            "sato": sato,
+            "conflict": partial(conflict, edgeset=edgeset, n_agents=n_agents, n_actions=n_actions)
+        }
+
+        assert game_type in GAME_MAP, f"Game type {game_type} not recognised"
+        if game_type == "shapley":
+            assert n_actions == 3, "Shapley Games have three actions!"
+        elif game_type == "sato":
+            assert n_actions == 3, "Sato Games have three actions!"
+
+        game = GAME_MAP[game_type](n_edges=n_edges)
 
         x = QL.init_strats(n_agents, n_actions)
         Q = np.zeros((n_agents, n_actions))
@@ -76,7 +90,7 @@ def generate_heatmap(n_agents=15, n_actions=3, nP=20, nT=20, n_iter=2500, n_expt
         The generated heatmap
     """
 
-    assert game_type == 'shapley', 'sato not yet implemented, please make sure to amend code everywhere shapley appears'
+    # assert game_type == 'shapley', 'sato not yet implemented, please make sure to amend code everywhere shapley appears'
     # Initialize parameters
     ps = np.linspace(p_range[0], p_range[1], nP)
     Ts = np.linspace(T_range[0], T_range[1], nT)
@@ -86,7 +100,7 @@ def generate_heatmap(n_agents=15, n_actions=3, nP=20, nT=20, n_iter=2500, n_expt
     params_list = []
     for i, p in enumerate(ps):
         for j, T in enumerate(Ts):
-            params_list.append((p, T, n_agents, n_actions, n_iter, n_expt))
+            params_list.append((p, T, n_agents, n_actions, n_iter, n_expt, game_type))
 
     # Set up multiprocessing
     num_processes = mp.cpu_count()

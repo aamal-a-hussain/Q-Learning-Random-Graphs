@@ -27,6 +27,20 @@ def sato(ex=0.1,ey=-0.05,n_edges=3):
 def generate_edgeset(network):
     return list(network.edges())
 
+def conflict(edgeset, n_edges, n_agents=5, n_actions=2):
+    A = np.zeros((n_actions, n_actions, n_edges))
+    B = np.zeros((n_actions, n_actions, n_edges))
+    v = np.random.uniform(0, 1, size=n_agents)
+    for e, edge in enumerate(edgeset):
+        c_1 = np.random.uniform(-1, 1, size=(n_actions, 1))
+        c_2 = np.random.uniform(-1, 1, size=(1, n_actions))
+        P = np.random.uniform(-5, 5, size=(n_actions, n_actions))
+        A_kl = v[edge[0]] * P + c_1
+        A_lk = v[edge[1]] * (1 - P) + c_2
+        A[:, :, e] = A_kl
+        B[:, :, e] = A_lk
+    return A, B
+
 def get_payoffs(x, edgeset, G, n_agents, n_actions):
     P = np.zeros((n_agents, n_actions))
     A, B = G
