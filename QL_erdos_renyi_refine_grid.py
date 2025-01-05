@@ -5,12 +5,13 @@ Created on Fri Dec 27 16:56:51 2024
 @author: dleon
 """
 
+from functools import partial
 import plotly.graph_objects as go
 import numpy as np
 import networkx as nx
 from tqdm import tqdm
 import QL
-from networkgames import generate_edgeset, shapley
+from networkgames import generate_edgeset, shapley, sato, conflict
 import multiprocessing as mp
 
 
@@ -18,7 +19,7 @@ def run_single_cell_experiment(params):
     """
     Run all experiments for a single cell and return the convergence rate.
     """
-    p, T, n_agents, n_actions, n_iter, n_expt = params
+    p, T, n_agents, n_actions, n_iter, n_expt, game_type = params
     window_size = int(0.1 * n_iter)
     converged = 0
 
@@ -26,7 +27,20 @@ def run_single_cell_experiment(params):
         network = nx.erdos_renyi_graph(n_agents, p)
         edgeset = generate_edgeset(network)
         n_edges = network.number_of_edges()
-        game = shapley(n_edges=n_edges)
+
+        GAME_MAP = {
+            "shapley": shapley,
+            "sato": sato,
+            "conflict": partial(conflict, edgeset=edgeset, n_agents=n_agents, n_actions=n_actions)
+        }
+
+        assert game_type in GAME_MAP, f"Game type {game_type} not recognised"
+        if game_type == "shapley":
+            assert n_actions == 3, "Shapley Games have three actions!"
+        elif game_type == "sato":
+            assert n_actions == 3, "Sato Games have three actions!"
+
+        game = GAME_MAP[game_type](n_edges=n_edges)
 
         x = QL.init_strats(n_agents, n_actions)
         Q = np.zeros((n_agents, n_actions))
@@ -183,7 +197,8 @@ def create_refined_heatmap(original_heatmap, mask, n_agents, n_actions, nP, nT,
                             n_agents,
                             n_actions,
                             n_iter,
-                            n_expt
+                            n_expt,
+                            game_type
                         ))
 
     # Process cells in parallel using a single pool
