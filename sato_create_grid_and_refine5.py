@@ -16,7 +16,7 @@ from QL_erdos_renyi_refine_grid import create_refined_heatmap, identify_cells_of
 
 def create_experiment_folder(n_agents, params):
     """Create folder and save parameters"""
-    folder_name = f"{game_type}_heatmap_nagents_{n_agents}"
+    folder_name = f"heatmap_nagents_{n_agents}"
     os.makedirs(folder_name, exist_ok=True)
 
     # Save parameters to JSON file
@@ -134,16 +134,16 @@ def run_heatmap_workflow(n_agents, n_actions, nP, nT, n_iter, n_expt,
 def main():
 
     params = {
-        "n_agents": 15,
+        "n_agents": 5,
         "n_actions": 3,
         "nP": 30,
         "nT": 30,
         "n_iter": 3000,
         "n_expt": 12,
         "p_range": (0.1, 1),
-        "T_range": (0.1, 3.5),
-        "game_type": "shapley",
-        "n_refinements": 4
+        "T_range": (0.1, 6),
+        "game_type": "sato",
+        "n_refinements": 0
     }
 
     run_heatmap_workflow(**params)
