@@ -11,18 +11,22 @@ import json
 import plotly.graph_objects as go
 from datetime import datetime
 from QL_erdos_renyi_create_grid import generate_heatmap  # , plot_heatmap
-from QL_erdos_renyi_refine_grid import create_refined_heatmap, identify_cells_of_interest
+from QL_erdos_renyi_refine_grid import (
+    create_refined_heatmap,
+    identify_cells_of_interest,
+)
+from parameters import ExperimentParameters
 
 
-def create_experiment_folder(n_agents, params):
+def create_experiment_folder(parameters: ExperimentParameters):
     """Create folder and save parameters"""
-    folder_name = f"heatmap_nagents_{n_agents}"
+    folder_name = f"heatmap_nagents_{parameters.game_parameters.n_agents}"
     os.makedirs(folder_name, exist_ok=True)
 
     # Save parameters to JSON file
     params_file = os.path.join(folder_name, "parameters.json")
     with open(params_file, "w") as f:
-        json.dump(params, f, indent=4)
+        json.dump(json.loads(parameters.model_dump_json()), f, indent=4)
 
     return folder_name
 
@@ -30,8 +34,7 @@ def create_experiment_folder(n_agents, params):
 def save_heatmap(heatmap, folder_name, iteration, p_range, T_range):
     """Save heatmap as both .npy and .html"""
     # Save numpy array
-    np_filename = os.path.join(
-        folder_name, f"heatmap_iteration_{iteration}.npy")
+    np_filename = os.path.join(folder_name, f"heatmap_iteration_{iteration}.npy")
     np.save(np_filename, heatmap)
 
     # Create and save plotly figure
@@ -44,81 +47,47 @@ def save_heatmap(heatmap, folder_name, iteration, p_range, T_range):
     fig.update_layout(
         title=f"Q-Learning Convergence Heatmap (Iteration {iteration})",
         xaxis_title="Temperature (T)",
-        yaxis_title="Probability (p)"
+        yaxis_title="Probability (p)",
     )
 
-    html_filename = os.path.join(
-        folder_name, f"heatmap_iteration_{iteration}.html")
+    html_filename = os.path.join(folder_name, f"heatmap_iteration_{iteration}.html")
     fig.write_html(html_filename)
 
 
-def run_heatmap_workflow(n_agents, n_actions, nP, nT, n_iter, n_expt,
-                         p_range, T_range, game_type, n_refinements):
+def run_heatmap_workflow(params: ExperimentParameters):
     """Run the complete heatmap generation and refinement workflow"""
 
-    # Store parameters
-    params = {
-        "n_agents": n_agents,
-        "n_actions": n_actions,
-        "nP": nP,
-        "nT": nT,
-        "n_iter": n_iter,
-        "n_expt": n_expt,
-        "p_range": p_range,
-        "T_range": T_range,
-        "game_type": game_type,
-        "n_refinements": n_refinements,
-        "timestamp": datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    }
-
     # Create folder
-    folder_name = create_experiment_folder(n_agents, params)
+    folder_name = create_experiment_folder(params)
 
     # Generate initial heatmap
     print("Generating initial heatmap...")
-    heatmap = generate_heatmap(
-        n_agents=n_agents,
-        n_actions=n_actions,
-        nP=nP,
-        nT=nT,
-        n_iter=n_iter,
-        n_expt=n_expt,
-        p_range=p_range,
-        T_range=T_range,
-        game_type=game_type
-    )
+    heatmap = generate_heatmap(params)
 
     # Save initial heatmap
-    save_heatmap(heatmap, folder_name, 0, p_range, T_range)
+    save_heatmap(heatmap, folder_name, 0, params.p_range, params.T_range)
 
     # Perform refinements
     current_heatmap = heatmap
-    current_nP = nP
-    current_nT = nT
+    current_nP = params.nP
+    current_nT = params.nT
 
-    for i in range(n_refinements):
-        print(f"Performing refinement {i+1}/{n_refinements}...")
+    for i in range(params.n_refinements):
+        print(f"Performing refinement {i+1}/{params.n_refinements}...")
 
-        if i == n_refinements - 1:
-
-            n_expt = 50
+        if i == params.n_refinements - 1:
+            params.n_expt = 50
 
         # Identify cells of interest
         mask = identify_cells_of_interest(current_heatmap)
+        params.nP = current_nP
+        params.nT = current_nT
 
         # Refine heatmap
         current_heatmap = create_refined_heatmap(
             current_heatmap,
             mask,
-            n_agents=n_agents,
-            n_actions=n_actions,
-            nP=current_nP,
-            nT=current_nT,
-            n_iter=n_iter,
-            n_expt=n_expt,
-            p_range=p_range,
-            T_range=T_range,
-            game_type=game_type
+            params,
         )
 
         # Update current grid sizes
@@ -126,27 +95,34 @@ def run_heatmap_workflow(n_agents, n_actions, nP, nT, n_iter, n_expt,
         current_nT *= 2
 
         # Save refined heatmap
-        save_heatmap(current_heatmap, folder_name, i+1, p_range, T_range)
+        save_heatmap(
+            current_heatmap, folder_name, i + 1, params.p_range, params.T_range
+        )
 
     print(f"Workflow completed. Results saved in {folder_name}/")
 
 
 def main():
-
-    params = {
+    game_parameters = {
+        "game_type": "shapley",
         "n_agents": 15,
         "n_actions": 3,
-        "nP": 30,
-        "nT": 30,
         "n_iter": 3000,
+    }
+    network_parameters = {"network_type": "er"}
+    params = {
+        "game_parameters": game_parameters,
+        "network_parameters": network_parameters,
+        "nP": 10,
+        "nT": 10,
         "n_expt": 12,
-        "p_range": (0.1, 1),
+        "p_range": (0.1, 1.0),
         "T_range": (0.1, 3.5),
-        "game_type": "shapley",
-        "n_refinements": 4
+        "n_refinements": 1,
     }
 
-    run_heatmap_workflow(**params)
+    parameters = ExperimentParameters(**params)
+    run_heatmap_workflow(parameters)
 
 
 if __name__ == "__main__":

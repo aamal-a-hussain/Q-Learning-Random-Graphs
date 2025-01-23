@@ -11,47 +11,70 @@ import numpy as np
 import networkx as nx
 from tqdm import tqdm
 import QL
-from networkgames import generate_edgeset, shapley, sato, conflict
+from QL_erdos_renyi_create_grid import plot_heatmap
+from networkgames import (
+    generate_edgeset,
+    generate_er_network,
+    generate_sbm_network,
+    shapley,
+    sato,
+    conflict,
+)
 import multiprocessing as mp
 
+from parameters import ExperimentParameters, RunParameters
 
-def run_single_cell_experiment(params):
+
+def run_single_cell_experiment(params: RunParameters):
     """
     Run all experiments for a single cell and return the convergence rate.
     """
-    p, T, n_agents, n_actions, n_iter, n_expt, game_type = params
-    window_size = int(0.1 * n_iter)
+    network_generator = (
+        generate_sbm_network
+        if params.network_parameters.network_type == "sbm"
+        else generate_er_network
+    )
     converged = 0
+    window_size = params.n_iter // 10
 
-    for _ in range(n_expt):
-        network = nx.erdos_renyi_graph(n_agents, p)
+    for _ in range(params.n_expt):
+        network = network_generator(params.n_agents, params.network_parameters)
         edgeset = generate_edgeset(network)
         n_edges = network.number_of_edges()
 
         GAME_MAP = {
             "shapley": shapley,
             "sato": sato,
-            "conflict": partial(conflict, edgeset=edgeset, n_agents=n_agents, n_actions=n_actions)
+            "conflict": partial(
+                conflict,
+                edgeset=edgeset,
+                n_agents=params.n_agents,
+                n_actions=params.n_actions,
+            ),
         }
 
-        assert game_type in GAME_MAP, f"Game type {game_type} not recognised"
-        if game_type == "shapley":
-            assert n_actions == 3, "Shapley Games have three actions!"
-        elif game_type == "sato":
-            assert n_actions == 3, "Sato Games have three actions!"
+        game = GAME_MAP[params.game_type](n_edges=n_edges)
 
-        game = GAME_MAP[game_type](n_edges=n_edges)
-
-        x = QL.init_strats(n_agents, n_actions)
-        Q = np.zeros((n_agents, n_actions))
-        x, Q, traj = QL.run_ql(x, Q, n_iter, edgeset,
-                               game, n_agents, n_actions, T=T)
+        x = QL.init_strats(params.n_agents, params.n_actions)
+        Q = np.zeros((params.n_agents, params.n_actions))
+        x, Q, traj = QL.run_ql(
+            x,
+            Q,
+            params.n_iter,
+            edgeset,
+            game,
+            params.n_agents,
+            params.n_actions,
+            T=params.T,
+        )
         traj = traj.T
 
-        if QL.check_var(traj, window_size, 1e-2) and QL.check_rel_diff(traj, window_size, 1e-5):
+        if QL.check_var(traj, window_size, 1e-2) and QL.check_rel_diff(
+            traj, window_size, 1e-5
+        ):
             converged += 1
 
-    return 1 - converged / n_expt
+    return 1 - converged / params.n_expt
 
 
 def identify_cells_of_interest(heatmap):
@@ -74,10 +97,10 @@ def identify_cells_of_interest(heatmap):
             if interesting_cells[i, j]:
                 # Add left neighbor if not at left boundary
                 if j > 0:
-                    mask[i, j-1] = True
+                    mask[i, j - 1] = True
                 # Add right neighbor if not at right boundary
-                if j < nT-1:
-                    mask[i, j+1] = True
+                if j < nT - 1:
+                    mask[i, j + 1] = True
 
     # Fill in gaps in each row
     for i in range(nP):
@@ -85,15 +108,15 @@ def identify_cells_of_interest(heatmap):
         true_positions = np.where(mask[i])[0]
         if len(true_positions) >= 2:
             # Fill everything between min and max position
-            mask[i, true_positions[0]:true_positions[-1]+1] = True
+            mask[i, true_positions[0] : true_positions[-1] + 1] = True
 
     # Mark cells in the row above any marked cells
     # Create a copy of the mask to avoid affecting the iteration
     above_mask = mask.copy()
-    for i in range(nP-1, 0, -1):  # Start from bottom row, move up
+    for i in range(nP - 1, 0, -1):  # Start from bottom row, move up
         for j in range(nT):
             if mask[i, j]:  # If cell is marked
-                above_mask[i-1, j] = True  # Mark cell above it
+                above_mask[i - 1, j] = True  # Mark cell above it
 
     return above_mask
 
@@ -137,8 +160,7 @@ def identify_cells_of_interest(heatmap):
 #    return mask
 
 
-def create_refined_heatmap(original_heatmap, mask, n_agents, n_actions, nP, nT,
-                           n_iter, n_expt, p_range, T_range, game_type):
+def create_refined_heatmap(original_heatmap, mask, params: ExperimentParameters):
     """
     Creates a new heatmap with doubled nP and doubled nT.
 
@@ -172,50 +194,55 @@ def create_refined_heatmap(original_heatmap, mask, n_agents, n_actions, nP, nT,
     numpy.ndarray
         The refined heatmap with doubled resolution
     """
-    new_nP = 2 * nP
-    new_nT = 2 * nT
+    new_nP = 2 * params.nP
+    new_nT = 2 * params.nT
 
     # Create new parameter grids with doubled resolution
-    new_ps = np.linspace(p_range[0], p_range[1], new_nP)
-    new_Ts = np.linspace(T_range[0], T_range[1], new_nT)
+    new_ps = np.linspace(params.p_range[0], params.p_range[1], new_nP)
+    new_Ts = np.linspace(params.T_range[0], params.T_range[1], new_nT)
 
     # Initialize new heatmap
     refined_heatmap = np.zeros((new_nP, new_nT))
 
     # Create list of cells that need experiments
     cells_to_process = []
-    for i in range(nP):
-        for j in range(nT):
+    for i in range(params.nP):
+        for j in range(params.nT):
             if mask[i, j]:
-                new_i1, new_i2 = 2*i, 2*i + 1
-                new_j1, new_j2 = 2*j, 2*j + 1
+                new_i1, new_i2 = 2 * i, 2 * i + 1
+                new_j1, new_j2 = 2 * j, 2 * j + 1
                 for new_i in [new_i1, new_i2]:
                     for new_j in [new_j1, new_j2]:
-                        cells_to_process.append((
-                            new_ps[new_i],
-                            new_Ts[new_j],
-                            n_agents,
-                            n_actions,
-                            n_iter,
-                            n_expt,
-                            game_type
-                        ))
+                        run_params = RunParameters(
+                            T=new_Ts[new_j],
+                            n_agents=params.game_parameters.n_agents,
+                            n_actions=params.game_parameters.n_actions,
+                            n_iter=params.game_parameters.n_iter,
+                            game_type=params.game_parameters.game_type,
+                            n_expt=params.n_expt,
+                            network_parameters=params.network_parameters.model_copy(
+                                update={"p": new_ps[new_i]}
+                            ),
+                        )
+                        cells_to_process.append(run_params)
 
     # Process cells in parallel using a single pool
-    print(f'Processing {len(cells_to_process)} cells in parallel...')
+    print(f"Processing {len(cells_to_process)} cells in parallel...")
     num_processes = mp.cpu_count()
     with mp.Pool(processes=num_processes) as pool:
-        results = list(tqdm(
-            pool.imap(run_single_cell_experiment, cells_to_process),
-            total=len(cells_to_process)
-        ))
+        results = list(
+            tqdm(
+                pool.imap(run_single_cell_experiment, cells_to_process),
+                total=len(cells_to_process),
+            )
+        )
 
     # Fill in the results
     result_idx = 0
-    for i in range(nP):
-        for j in range(nT):
-            new_i1, new_i2 = 2*i, 2*i + 1
-            new_j1, new_j2 = 2*j, 2*j + 1
+    for i in range(params.nP):
+        for j in range(params.nT):
+            new_i1, new_i2 = 2 * i, 2 * i + 1
+            new_j1, new_j2 = 2 * j, 2 * j + 1
             if mask[i, j]:
                 for new_i in [new_i1, new_i2]:
                     for new_j in [new_j1, new_j2]:
@@ -223,59 +250,64 @@ def create_refined_heatmap(original_heatmap, mask, n_agents, n_actions, nP, nT,
                         result_idx += 1
             else:
                 # Copy the original value to all four subcells
-                refined_heatmap[new_i1:new_i2+1,
-                                new_j1:new_j2+1] = original_heatmap[i, j]
+                refined_heatmap[new_i1 : new_i2 + 1, new_j1 : new_j2 + 1] = (
+                    original_heatmap[i, j]
+                )
 
     return refined_heatmap
 
 
+def plot_refined_heatmap(
+    original_heatmap: np.ndarray,
+    refined_heatmap: np.ndarray,
+    params: ExperimentParameters,
+):
+    nP, nT = original_heatmap.shape
+    new_Ts = np.linspace(params.T_range[0], params.T_range[1], 2 * nT)
+    new_ps = np.linspace(params.p_range[0], params.p_range[1], 2 * nP)
+
+    fig = go.Figure()
+    fig.add_trace(go.Heatmap(x=new_Ts, y=new_ps, z=refined_heatmap))
+    fig.update_layout(
+        title="Q-Learning Convergence Heatmap",
+        xaxis_title="Temperature (T)",
+        yaxis_title="Probability (p)",
+    )
+    return fig
+
+
 def main():
-    # Define parameters
-    n_agents = 15
-    n_actions = 3
-    nP = 20
-    nT = 20
-    n_iter = 2500
-    n_expt = 10
-    p_range = (0.01, 1)
-    T_range = (0.01, 3.5)
-    game_type = 'shapley'
+    params = {
+        "game_parameters": {
+            "n_agents": 15,
+            "n_actions": 3,
+            "n_iter": 2500,
+            "game_type": "shapley",
+        },
+        "network_parameters": {"network_type": "er"},
+        "nP": 20,
+        "nT": 20,
+        "n_expt": 10,
+    }
+    params = ExperimentParameters(**params)
 
     # Load the original heatmap
-    original_heatmap = np.load('QL-erdos-renyi-refined-2d.npy')
+    original_heatmap = np.load("QL-erdos-renyi-refined-2d.npy")
 
     # Identify cells of interest
     mask = identify_cells_of_interest(original_heatmap)
 
     # Print number of cells to process
     cells_to_process = np.sum(mask)
-    print(f'Found {cells_to_process} cells of interest (including neighbors)')
+    print(f"Found {cells_to_process} cells of interest (including neighbors)")
 
     # Create refined heatmap with new parameters
-    refined_heatmap = create_refined_heatmap(
-        original_heatmap,
-        mask,
-        n_agents=n_agents,
-        n_actions=n_actions,
-        nP=nP,
-        nT=nT,
-        n_iter=n_iter,
-        n_expt=n_expt,
-        p_range=p_range,
-        T_range=T_range,
-        game_type=game_type
-    )
+    refined_heatmap = create_refined_heatmap(original_heatmap, mask, params)
 
     # Save the refined heatmap
-    np.save('QL_erdos_renyi_refined.npy', refined_heatmap)
+    np.save("QL_erdos_renyi_refined.npy", refined_heatmap)
 
-    # Plot the results using plotly
-    nP, nT = original_heatmap.shape
-    new_Ts = np.linspace(T_range[0], T_range[1], 2*nT)
-    new_ps = np.linspace(p_range[0], p_range[1], 2*nP)
-
-    fig = go.Figure()
-    fig.add_trace(go.Heatmap(x=new_Ts, y=new_ps, z=refined_heatmap))
+    fig = plot_refined_heatmap(original_heatmap, refined_heatmap, params=params)
 
     fig.write_html("QL_erdos_renyi_figure_refined.html")
 
