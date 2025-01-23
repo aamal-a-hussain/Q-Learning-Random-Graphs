@@ -65,7 +65,7 @@ def generate_sbm_network(n_agents: int, params: NetworkParameters):
     if params.network_type != "sbm":
         raise ValueError("Network Type must be 'sbm' to initialise an SBM network")
 
-    if params.p is None or (params.p_min is None and params.p_max is None):
+    if params.p is None and params.p_min is None and params.p_max is None:
         raise ValueError("Either p or p_min, p_max must be set for SBM experiments")
 
     if params.p is not None and (params.p_min is not None or params.p_max is not None):

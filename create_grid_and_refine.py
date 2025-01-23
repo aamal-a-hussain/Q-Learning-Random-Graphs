@@ -109,12 +109,12 @@ def main():
         "n_actions": 3,
         "n_iter": 3000,
     }
-    network_parameters = {"network_type": "er"}
+    network_parameters = {"network_type": "sbm", "q": 0.2, "n_blocks": 3}
     params = {
         "game_parameters": game_parameters,
         "network_parameters": network_parameters,
-        "nP": 10,
-        "nT": 10,
+        "nP": 30,
+        "nT": 30,
         "n_expt": 12,
         "p_range": (0.1, 1.0),
         "T_range": (0.1, 3.5),

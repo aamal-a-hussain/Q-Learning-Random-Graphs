@@ -23,7 +23,7 @@ class NetworkParameters(BaseModel):
 
     # SBM Parameters
     n_blocks: int | None = None
-    q: int | None = None
+    q: float | None = None
     p_min: float | None = None
     p_max: float | None = None
 
