@@ -4,6 +4,7 @@ Created on Mon Dec 30 14:21:33 2024
 
 @author: dleon
 """
+
 from functools import partial
 
 import numpy as np
@@ -12,52 +13,71 @@ from tqdm import tqdm
 import multiprocessing as mp
 import plotly.graph_objects as go
 import QL
-from networkgames import generate_edgeset, shapley, sato, conflict
+from networkgames import (
+    generate_edgeset,
+    generate_er_network,
+    generate_sbm_network,
+    shapley,
+    sato,
+    conflict,
+)
+from parameters import ExperimentParameters, RunParameters
 
 
-def process_single_cell(params):
+def process_single_cell(params: RunParameters):
     """
     Process a single cell with given parameters.
     Returns the non-convergence rate for the cell.
     """
-    p, T, n_agents, n_actions, n_iter, n_expt, game_type = params
-    window_size = int(0.1 * n_iter)
-    converged = 0
 
-    for _ in range(n_expt):
-        network = nx.erdos_renyi_graph(n_agents, p)
+    network_generator = (
+        generate_sbm_network
+        if params.network_parameters.network_type == "sbm"
+        else generate_er_network
+    )
+    converged = 0
+    window_size = params.n_iter // 10
+
+    for _ in range(params.n_expt):
+        network = network_generator(params.n_agents, params.network_parameters)
         edgeset = generate_edgeset(network)
         n_edges = network.number_of_edges()
 
         GAME_MAP = {
             "shapley": shapley,
             "sato": sato,
-            "conflict": partial(conflict, edgeset=edgeset, n_agents=n_agents, n_actions=n_actions)
+            "conflict": partial(
+                conflict,
+                edgeset=edgeset,
+                n_agents=params.n_agents,
+                n_actions=params.n_actions,
+            ),
         }
 
-        assert game_type in GAME_MAP, f"Game type {game_type} not recognised"
-        if game_type == "shapley":
-            assert n_actions == 3, "Shapley Games have three actions!"
-        elif game_type == "sato":
-            assert n_actions == 3, "Sato Games have three actions!"
+        game = GAME_MAP[params.game_type](n_edges=n_edges)
 
-        game = GAME_MAP[game_type](n_edges=n_edges)
-
-        x = QL.init_strats(n_agents, n_actions)
-        Q = np.zeros((n_agents, n_actions))
-        x, Q, traj = QL.run_ql(x, Q, n_iter, edgeset,
-                               game, n_agents, n_actions, T=T)
+        x = QL.init_strats(params.n_agents, params.n_actions)
+        Q = np.zeros((params.n_agents, params.n_actions))
+        x, Q, traj = QL.run_ql(
+            x,
+            Q,
+            params.n_iter,
+            edgeset,
+            game,
+            params.n_agents,
+            params.n_actions,
+            T=params.T,
+        )
         traj = traj.T
 
-        converged += QL.check_var(traj, window_size,
-                                  1e-2) and QL.check_rel_diff(traj, window_size, 1e-5)
+        converged += QL.check_var(traj, window_size, 1e-2) and QL.check_rel_diff(
+            traj, window_size, 1e-5
+        )
 
-    return 1 - converged / n_expt
+    return 1 - converged / params.n_expt
 
 
-def generate_heatmap(n_agents=15, n_actions=3, nP=20, nT=20, n_iter=2500, n_expt=10,
-                     p_range=(0.1, 1), T_range=(0.1, 3.5), game_type='shapley',
-                     save_path=None):
+def generate_heatmap(params: ExperimentParameters, save_path=None):
     """
     Generate a heatmap of Q-Learning convergence rates.
 
@@ -90,35 +110,42 @@ def generate_heatmap(n_agents=15, n_actions=3, nP=20, nT=20, n_iter=2500, n_expt
         The generated heatmap
     """
 
-    # assert game_type == 'shapley', 'sato not yet implemented, please make sure to amend code everywhere shapley appears'
     # Initialize parameters
-    ps = np.linspace(p_range[0], p_range[1], nP)
-    Ts = np.linspace(T_range[0], T_range[1], nT)
-    hmp = np.zeros((nP, nT))
+    ps = np.linspace(params.p_range[0], params.p_range[1], params.nP)
+    Ts = np.linspace(params.T_range[0], params.T_range[1], params.nT)
+    hmp = np.zeros((params.nP, params.nT))
 
     # Create parameter list for all cells
     params_list = []
     for i, p in enumerate(ps):
         for j, T in enumerate(Ts):
-            params_list.append((p, T, n_agents, n_actions, n_iter, n_expt, game_type))
+            run_params = RunParameters(
+                T=T,
+                n_agents=params.game_parameters.n_agents,
+                n_actions=params.game_parameters.n_actions,
+                n_iter=params.game_parameters.n_iter,
+                game_type=params.game_parameters.game_type,
+                n_expt=params.n_expt,
+                network_parameters=params.network_parameters.model_copy(
+                    update={"p": p}
+                ),
+            )
+            params_list.append(run_params)
 
     # Set up multiprocessing
     num_processes = mp.cpu_count()
 
-
     # Process cells in parallel
-    print(
-        f"Processing {len(params_list)} cells using {num_processes} processes...")
+    print(f"Processing {len(params_list)} cells using {num_processes} processes...")
     with mp.Pool(processes=num_processes) as pool:
-        results = list(tqdm(
-            pool.imap(process_single_cell, params_list),
-            total=len(params_list)
-        ))
+        results = list(
+            tqdm(pool.imap(process_single_cell, params_list), total=len(params_list))
+        )
 
     # Reshape results into heatmap
     for idx, result in enumerate(results):
-        i = idx // nT
-        j = idx % nT
+        i = idx // params.nT
+        j = idx % params.nT
         hmp[i, j] = result
 
     # Save results if path provided
@@ -129,7 +156,7 @@ def generate_heatmap(n_agents=15, n_actions=3, nP=20, nT=20, n_iter=2500, n_expt
     return hmp
 
 
-def plot_heatmap(heatmap, p_range=(0.1, 1), T_range=(0.1, 3.5)):
+def plot_heatmap(heatmap, params: ExperimentParameters):
     """
     Plot a heatmap using plotly.
 
@@ -143,33 +170,43 @@ def plot_heatmap(heatmap, p_range=(0.1, 1), T_range=(0.1, 3.5)):
         (min_T, max_T) for temperature range
     """
     nP, nT = heatmap.shape
-    Ts = np.linspace(T_range[0], T_range[1], nT)
-    ps = np.linspace(p_range[0], p_range[1], nP)
+    Ts = np.linspace(params.T_range[0], params.T_range[1], nT)
+    ps = np.linspace(params.p_range[0], params.p_range[1], nP)
 
     fig = go.Figure()
     fig.add_trace(go.Heatmap(x=Ts, y=ps, z=heatmap))
     fig.update_layout(
         title="Q-Learning Convergence Heatmap",
         xaxis_title="Temperature (T)",
-        yaxis_title="Probability (p)"
+        yaxis_title="Probability (p)",
     )
     return fig
 
 
 def main():
     # Example usage
+
+    params = {
+        "game_parameters": {
+            "n_agents": 15,
+            "n_actions": 3,
+            "n_iter": 2500,
+            "game_type": "shapley",
+        },
+        "network_parameters": {"network_type": "er"},
+        "nP": 20,
+        "nT": 20,
+        "n_expt": 10,
+    }
+
+    params = ExperimentParameters(**params)
     heatmap = generate_heatmap(
-        n_agents=15,
-        n_actions=3,
-        nP=20,
-        nT=20,
-        n_iter=2500,
-        n_expt=10,
-        save_path='QL-erdos-renyi.npy'
+        params,
+        save_path="QL-erdos-renyi.npy",
     )
 
     # Plot the results
-    fig = plot_heatmap(heatmap)
+    fig = plot_heatmap(heatmap, params)
     fig.show()
 
 
