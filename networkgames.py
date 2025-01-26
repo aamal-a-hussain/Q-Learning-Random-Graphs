@@ -36,6 +36,11 @@ def generate_edgeset(network):
     return list(network.edges())
 
 
+def compute_iii(game):
+    A, B = game(n_edges=1)
+    return np.linalg.matrix_norm(A[:, :, 0] + B[:, :, 0].T, ord=2)
+
+
 def conflict(edgeset, n_edges, n_agents=5, n_actions=2):
     A = np.zeros((n_actions, n_actions, n_edges))
     B = np.zeros((n_actions, n_actions, n_edges))
