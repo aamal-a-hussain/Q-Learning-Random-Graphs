@@ -59,10 +59,10 @@ def create_heatmap_subplots(root_path):
             os.path.join(root_path, folder, "heatmap_iteration_3.npy")
         )
         params = load_parameters(root_path, folder)
-        # hmp, bound, params = plot_heatmap_and_bound(heatmap_npy, params)
-        hmp = plot_heatmap(heatmap_npy, params)
+        hmp, bound, params = plot_heatmap_and_bound(heatmap_npy, params)
+        # hmp = plot_heatmap(heatmap_npy, params)
         heatmap_fig.add_trace(hmp, row=1, col=col + 1)
-        # heatmap_fig.add_trace(bound, row=1, col=col + 1)
+        heatmap_fig.add_trace(bound, row=1, col=col + 1)
 
         heatmap_fig.update_xaxes(
             range=[params.T_range[0], params.T_range[1]],
@@ -82,7 +82,7 @@ def create_heatmap_subplots(root_path):
         width=800 * len(subdir),
         showlegend=False,
         # title_text=f"Network {params.game_parameters.game_type.capitalize()} Game",
-        title_text="Conflict Network Game",
+        title_text="Network Sato Game",
         title_x=0.5,
         font=dict(
             family="CMU Serif Bold",
@@ -152,5 +152,5 @@ def plot_heatmap_and_bound(heatmap, params, upper_bound=6.5):
 
 if __name__ == "__main__":
     os.makedirs("plots", exist_ok=True)
-    fig = create_heatmap_subplots(".results/final_results_conflict")
-    fig.write_html("plots/conflict_subplots.html")
+    fig = create_heatmap_subplots(".results/final_results_sato")
+    fig.write_html("plots/sato_subplots.html")

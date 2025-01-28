@@ -4,3 +4,4 @@ heatmap_*
 .vscode/
 .results/
 plots/
+*.html
