@@ -14,7 +14,7 @@ N_AGENTS = 50
 N_ACTIONS = 3
 GAME = sato
 Q = 0.1
-N_BLOCKS = 5
+N_BLOCKS = 2
 N_ITER = 3000
 
 
@@ -57,7 +57,7 @@ def run_single_game(T):
     ]
 
 
-def run_multiple_experiments(T, n_expt=128):
+def run_multiple_experiments(T, n_expt=32):
     num_processes = mp.cpu_count()
     print(f"Processing using {num_processes} processes...")
     maximum_extents = {f"Partition {i}": [] for i in range(N_BLOCKS)}
@@ -90,7 +90,7 @@ def plot_histogram(maximum_extents):
 
 if __name__ == "__main__":
     os.makedirs(f"histogram_{N_AGENTS}_agents", exist_ok=True)
-    for T in [1.75, 2, 2.25, 2.5]:
+    for T in [0.75, 1.0, 1.25, 1.5]:
         maximum_extents = run_multiple_experiments(T)
         fig = plot_histogram(maximum_extents)
         fig.write_html(f"histogram_{N_AGENTS}_agents/{T}.html")
