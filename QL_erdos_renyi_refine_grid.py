@@ -5,23 +5,20 @@ Created on Fri Dec 27 16:56:51 2024
 @author: dleon
 """
 
+import multiprocessing as mp
 from functools import partial
-import plotly.graph_objects as go
+
 import numpy as np
-import networkx as nx
+import plotly.graph_objects as go
 from tqdm import tqdm
+
 import QL
-from QL_erdos_renyi_create_grid import plot_heatmap
+from game import ConflictGame, SatoGame, ShapleyGame
 from networkgames import (
     generate_edgeset,
     generate_er_network,
     generate_sbm_network,
-    shapley,
-    sato,
-    conflict,
 )
-import multiprocessing as mp
-
 from parameters import ExperimentParameters, RunParameters
 
 
@@ -40,20 +37,15 @@ def run_single_cell_experiment(params: RunParameters):
     for _ in range(params.n_expt):
         network = network_generator(params.n_agents, params.network_parameters)
         edgeset = generate_edgeset(network)
-        n_edges = network.number_of_edges()
 
-        GAME_MAP = {
-            "shapley": shapley,
-            "sato": sato,
+        GAME_REGISTRY = {
+            "shapley": ShapleyGame,
+            "sato": SatoGame,
             "conflict": partial(
-                conflict,
-                edgeset=edgeset,
-                n_agents=params.n_agents,
-                n_actions=params.n_actions,
+                ConflictGame, n_actions=params.n_actions, edgeset=edgeset
             ),
         }
-
-        game = GAME_MAP[params.game_type](n_edges=n_edges)
+        game = GAME_REGISTRY[params.game_type](n_agents=params.n_agents)
 
         x = QL.init_strats(params.n_agents, params.n_actions)
         Q = np.zeros((params.n_agents, params.n_actions))
@@ -63,16 +55,13 @@ def run_single_cell_experiment(params: RunParameters):
             params.n_iter,
             edgeset,
             game,
-            params.n_agents,
-            params.n_actions,
             T=params.T,
         )
         traj = traj.T
 
-        if QL.check_var(traj, window_size, 1e-2) and QL.check_rel_diff(
+        converged += QL.check_var(traj, window_size, 1e-2) and QL.check_rel_diff(
             traj, window_size, 1e-5
-        ):
-            converged += 1
+        )
 
     return 1 - converged / params.n_expt
 

@@ -1,5 +1,5 @@
-import numpy as np
 import networkx as nx
+import numpy as np
 
 from parameters import NetworkParameters
 
@@ -19,15 +19,15 @@ def chakraborty(S=7.0, T=8.5, n_edges=3):
 
 
 def shapley(beta=0.2, n_edges=3):
-    A = np.dstack([np.array([[1, 0, beta], [beta, 1, 0], [0, beta, 1]])] * n_edges)
-    B = np.dstack([np.array([[-beta, 1, 0], [0, -beta, 1], [1, 0, -beta]])] * n_edges)
+    A = np.dstack([np.array([[1, 0, beta], [beta, 1, 0], [0, beta, 1]])])
+    B = np.dstack([np.array([[-beta, 1, 0], [0, -beta, 1], [1, 0, -beta]])])
 
     return A, B
 
 
 def sato(ex=0.1, ey=-0.05, n_edges=3):
-    A = np.dstack([np.array([[ex, -1, 1], [1, ex, -1], [-1, 1, ex]])] * n_edges)
-    B = np.dstack([np.array([[ey, -1, 1], [1, ey, -1], [-1, 1, ey]])] * n_edges)
+    A = np.dstack([np.array([[ex, -1, 1], [1, ex, -1], [-1, 1, ex]])])
+    B = np.dstack([np.array([[ey, -1, 1], [1, ey, -1], [-1, 1, ey]])])
 
     return A, B
 

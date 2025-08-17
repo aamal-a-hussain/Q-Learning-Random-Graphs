@@ -5,21 +5,19 @@ Created on Mon Dec 30 14:21:33 2024
 @author: dleon
 """
 
+import multiprocessing as mp
 from functools import partial
 
 import numpy as np
-import networkx as nx
-from tqdm import tqdm
-import multiprocessing as mp
 import plotly.graph_objects as go
+from tqdm import tqdm
+
 import QL
+from game import ConflictGame, SatoGame, ShapleyGame
 from networkgames import (
     generate_edgeset,
     generate_er_network,
     generate_sbm_network,
-    shapley,
-    sato,
-    conflict,
 )
 from parameters import ExperimentParameters, RunParameters
 
@@ -41,20 +39,15 @@ def process_single_cell(params: RunParameters):
     for _ in range(params.n_expt):
         network = network_generator(params.n_agents, params.network_parameters)
         edgeset = generate_edgeset(network)
-        n_edges = network.number_of_edges()
 
-        GAME_MAP = {
-            "shapley": shapley,
-            "sato": sato,
+        GAME_REGISTRY = {
+            "shapley": ShapleyGame,
+            "sato": SatoGame,
             "conflict": partial(
-                conflict,
-                edgeset=edgeset,
-                n_agents=params.n_agents,
-                n_actions=params.n_actions,
+                ConflictGame, n_actions=params.n_actions, edgeset=edgeset
             ),
         }
-
-        game = GAME_MAP[params.game_type](n_edges=n_edges)
+        game = GAME_REGISTRY[params.game_type](n_agents=params.n_agents)
 
         x = QL.init_strats(params.n_agents, params.n_actions)
         Q = np.zeros((params.n_agents, params.n_actions))
@@ -64,8 +57,6 @@ def process_single_cell(params: RunParameters):
             params.n_iter,
             edgeset,
             game,
-            params.n_agents,
-            params.n_actions,
             T=params.T,
         )
         traj = traj.T
