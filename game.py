@@ -125,15 +125,13 @@ def _get_payoffs_no_edges(x, edges, payoff_A, payoff_B, n_agents, n_actions):
     x_nbr_0 = x[agent_1_idx]
     x_nbr_1 = x[agent_0_idx]
 
-    contrib_0 = np.einsum("ij, je -> ie", payoff_A, x_nbr_0.T)
-    contrib_1 = np.einsum("ij, je -> ie", payoff_B, x_nbr_1.T)
-
-    #P = P.at[agent_0_idx].add(contrib_0.T)
-    #P = P.at[agent_1_idx].add(contrib_1.T)
-    
-    P[agent_0_idx] += contrib_0.T
-    P[agent_1_idx] += contrib_1.T
-
+    contrib_0 = payoff_A @ x_nbr_0.T  # Shape: (n_actions, n_edges)
+    contrib_1 = payoff_B @ x_nbr_1.T  # Shape: (n_actions, n_edges)
+     
+    # CRITICAL: Use np.add.at for proper accumulation with repeated indices
+    np.add.at(P, agent_0_idx, contrib_0.T)
+    np.add.at(P, agent_1_idx, contrib_1.T)
+ 
 
     return P
 

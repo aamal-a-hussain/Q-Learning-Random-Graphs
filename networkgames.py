@@ -51,14 +51,14 @@ def conflict(edgeset, n_edges, n_agents=5, n_actions=2):
     return A, B
 
 
-def get_payoffs(x, edgeset, G, n_agents, n_actions):
-    P = np.zeros((n_agents, n_actions))
-    A, B = G
-    for cI, e in enumerate(edgeset):
-        P[e[0]] += np.einsum("ij,j->i", A[:, :, cI], x[e[1]])
-        P[e[1]] += np.einsum("ij,j->i", B[:, :, cI], x[e[0]])
-
-    return P
+#def get_payoffs(x, edgeset, G, n_agents, n_actions):
+#    P = np.zeros((n_agents, n_actions))
+#    A, B = G
+#    for cI, e in enumerate(edgeset):
+#        P[e[0]] += np.einsum("ij,j->i", A[:, :, cI], x[e[1]])
+#        P[e[1]] += np.einsum("ij,j->i", B[:, :, cI], x[e[0]])
+#
+#    return P
 
 
 def generate_sbm_network(n_agents: int, params: NetworkParameters):
