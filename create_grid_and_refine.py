@@ -20,7 +20,21 @@ from parameters import ExperimentParameters
 
 def create_experiment_folder(parameters: ExperimentParameters):
     """Create folder and save parameters"""
-    folder_name = f"heatmap_nagents_{parameters.game_parameters.n_agents}"
+    #folder_name = f"heatmap_nagents_{parameters.game_parameters.n_agents}"
+    
+    game_parameters = parameters.game_parameters
+    network_parameters = parameters.network_parameters
+    network_type = network_parameters.network_type
+    
+    folder_name = f'heatmap_nagents_{game_parameters.n_agents}_game_type_{game_parameters.game_type}_refin_{parameters.n_refinements}_network_type_{network_type}'#_{int(10 * parameters.network_parameters.q)}"
+    
+    if network_type == 'sbm':
+        
+        q = network_parameters.q
+
+        
+        folder_name += f'_q_{int(10*q)}'
+    
     os.makedirs(folder_name, exist_ok=True)
 
     # Save parameters to JSON file
@@ -105,20 +119,20 @@ def run_heatmap_workflow(params: ExperimentParameters):
 def main():
     game_parameters = {
         "game_type": "shapley",
-        "n_agents": 15,
+        "n_agents": 52,
         "n_actions": 3,
         "n_iter": 3000,
     }
-    network_parameters = {"network_type": "sbm", "q": 0.2, "n_blocks": 3}
+    network_parameters = {"network_type": "er"}# #{"network_type": "sbm", "q": 0.2, "n_blocks": 3} #
     params = {
         "game_parameters": game_parameters,
         "network_parameters": network_parameters,
-        "nP": 30,
-        "nT": 30,
+        "nP": 28,
+        "nT": 28,
         "n_expt": 12,
-        "p_range": (0.1, 1.0),
-        "T_range": (0.1, 3.5),
-        "n_refinements": 1,
+        "p_range": (0.05, 0.25),
+        "T_range": (0.1, 2.25),
+        "n_refinements": 0,
     }
 
     parameters = ExperimentParameters(**params)
