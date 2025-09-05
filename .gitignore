@@ -3,3 +3,5 @@ __pycache__/
 heatmap_*
 .vscode/
 .env/
+*.sub
+er_file.sub.*

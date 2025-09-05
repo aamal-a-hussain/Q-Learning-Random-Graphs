@@ -100,17 +100,20 @@ def _get_payoffs_general(x, edges, payoff_A, payoff_B, n_agents, n_actions):
 
     x_nbr_0 = x[agent_1_idx]
     x_nbr_1 = x[agent_0_idx]
-    
+       
     # jax jitting might improve speed
+    # below gives wrong answer
+    #contrib_0 = np.einsum("ije, je -> ie", payoff_A, x_nbr_0.T)
+    #contrib_1 = np.einsum("ije, je -> ie", payoff_B, x_nbr_1.T)
+    #P[agent_0_idx] += contrib_0.T
+    #P[agent_1_idx] += contrib_1.T
+    
     contrib_0 = np.einsum("ije, je -> ie", payoff_A, x_nbr_0.T)
     contrib_1 = np.einsum("ije, je -> ie", payoff_B, x_nbr_1.T)
 
-    #P = P.at[agent_0_idx].add(contrib_0.T)
-    #P = P.at[agent_1_idx].add(contrib_1.T)
-
-    P[agent_0_idx] += contrib_0.T
-    P[agent_1_idx] += contrib_1.T
-
+    # Fix  accumulation
+    np.add.at(P, agent_0_idx, contrib_0.T)
+    np.add.at(P, agent_1_idx, contrib_1.T)
 
     return P
 

@@ -18,9 +18,14 @@ def init_strats(n_agents, n_actions):
     return np.random.dirichlet(np.ones(n_actions), size=n_agents)
 
 # suffers from both underflow and overflow: to be replaced with a scipy version
+#def ql_step(P, Q, T, alpha):
+#    Q = (1 - alpha) * Q + alpha * P
+#    x = np.exp(Q / T) / np.sum(np.exp(Q / T), axis=1)[:, np.newaxis]
+#    return x, Q
+
 def ql_step(P, Q, T, alpha):
     Q = (1 - alpha) * Q + alpha * P
-    x = np.exp(Q / T) / np.sum(np.exp(Q / T), axis=1)[:, np.newaxis]
+    x = softmax(Q / T, axis=1)
     return x, Q
 
 
