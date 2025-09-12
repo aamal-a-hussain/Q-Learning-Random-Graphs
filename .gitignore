@@ -5,3 +5,5 @@ heatmap_*
 .env/
 *.sub
 er_file.sub.*
+*.zip
+*.7z
