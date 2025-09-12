@@ -130,7 +130,7 @@ def main():
         "nP": 64,
         "nT": 64,
         "n_expt": 12,
-        "p_range": (0.05, 0.25),
+        "p_range": (0.05, .25),
         "T_range": (0.05, 4.25), # (0.05,4.25) is a good range for this
         "n_refinements": 3,
     }

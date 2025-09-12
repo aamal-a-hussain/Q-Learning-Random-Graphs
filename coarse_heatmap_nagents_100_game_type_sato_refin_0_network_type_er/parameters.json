@@ -1,0 +1,29 @@
+{
+    "game_parameters": {
+        "n_agents": 100,
+        "n_actions": 3,
+        "n_iter": 4000,
+        "game_type": "sato"
+    },
+    "network_parameters": {
+        "network_type": "er",
+        "p": null,
+        "n_blocks": null,
+        "q": null,
+        "p_min": null,
+        "p_max": null
+    },
+    "nP": 34,
+    "nT": 34,
+    "n_expt": 12,
+    "p_range": [
+        0.05,
+        1.0
+    ],
+    "T_range": [
+        0.05,
+        7.5
+    ],
+    "n_refinements": 0,
+    "timestamp": "2025-09-05T23:57:12.904088"
+}
