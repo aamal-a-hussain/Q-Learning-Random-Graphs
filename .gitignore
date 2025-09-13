@@ -9,3 +9,4 @@ er_file.sub.*
 *.7z
 results/
 plots/
+*.sub.*
