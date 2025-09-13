@@ -10,3 +10,4 @@ er_file.sub.*
 results/
 plots/
 *.sub.*
+min_T_results/

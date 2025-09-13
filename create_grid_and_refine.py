@@ -118,8 +118,8 @@ def run_heatmap_workflow(params: ExperimentParameters):
 
 def main():
     game_parameters = {
-        "game_type": "conflict",
-        "n_agents": 25,
+        "game_type": "sato",
+        "n_agents": 50,
         "n_actions": 3,
         "n_iter": 4000,
     }
@@ -127,12 +127,12 @@ def main():
     params = {
         "game_parameters": game_parameters,
         "network_parameters": network_parameters,
-        "nP": 64,
-        "nT": 64,
+        "nP": 24,
+        "nT": 24,
         "n_expt": 12,
-        "p_range": (0.05, .25),
-        "T_range": (0.05, 4.25), # (0.05,4.25) is a good range for this
-        "n_refinements": 3,
+        "p_range": (0.05, 1.),
+        "T_range": (0.05, 9.25), # (0.05,4.25) is a good range for this
+        "n_refinements": 0,
     }
 
     parameters = ExperimentParameters(**params)
