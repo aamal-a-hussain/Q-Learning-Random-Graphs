@@ -1,6 +1,4 @@
-#import jax.numpy as jnp
 import numpy as np
-
 
 
 class NetworkGame:
@@ -17,7 +15,7 @@ class NetworkGame:
 
         x = np.array(x)
         edges = np.array(edgeset)
-        return _get_payoffs_general(#_get_jit_payoffs(
+        return _get_payoffs_general(  # _get_jit_payoffs(
             x, edges, self.payoff_A, self.payoff_B, self.n_agents, self.n_actions
         )
 
@@ -37,16 +35,22 @@ class ShapleyGame(NetworkGame):
 
         x = np.array(x)
         edges = np.array(edgeset)
-        return _get_payoffs_no_edges(#_get_jit_payoffs_no_edges(
+        return _get_payoffs_no_edges(
             x, edges, self.payoff_A, self.payoff_B, self.n_agents, self.n_actions
         )
+
+    @property
+    def iii(self):
+        assert self.payoff_A is not None
+        assert self.payoff_B is not None
+        return np.linalg.matrix_norm(self.payoff_A + self.payoff_B.T, ord=2)
 
 
 class SatoGame(NetworkGame):
     name = "sato"
     n_actions = 3
 
-    def __init__(self, n_agents, ex=0.1, ey= -0.05):
+    def __init__(self, n_agents, ex=0.5, ey=-0.3):
         assert n_agents > 2
         self.n_agents = n_agents
         self.payoff_A = np.array([[ex, -1, 1], [1, ex, -1], [-1, 1, ex]])
@@ -60,6 +64,12 @@ class SatoGame(NetworkGame):
         return _get_payoffs_no_edges(
             x, edges, self.payoff_A, self.payoff_B, self.n_agents, self.n_actions
         )
+
+    @property
+    def iii(self):
+        assert self.payoff_A is not None
+        assert self.payoff_B is not None
+        return np.linalg.matrix_norm(self.payoff_A + self.payoff_B.T, ord=2)
 
 
 class ConflictGame(NetworkGame):
@@ -89,10 +99,18 @@ class ConflictGame(NetworkGame):
             self.payoff_A[:, :, e] = A_kl
             self.payoff_B[:, :, e] = A_lk
 
+    @property
+    def iii(self):
+        assert self.payoff_A is not None
+        assert self.payoff_B is not None
+        payoff_A = self.payoff_A.permute_dims(2, 1, 0)
+        payoff_B = self.payoff_B.permute_dims(2, 0, 1)
+        return max(
+            np.linalg.matrix_norm(A + B, ord=2) for A, B in zip(payoff_A, payoff_B)
+        )
+
 
 def _get_payoffs_general(x, edges, payoff_A, payoff_B, n_agents, n_actions):
-    #P = jnp.zeros((n_agents, n_actions))
-    
     P = np.zeros((n_agents, n_actions))
 
     agent_0_idx = edges[:, 0]
@@ -100,14 +118,7 @@ def _get_payoffs_general(x, edges, payoff_A, payoff_B, n_agents, n_actions):
 
     x_nbr_0 = x[agent_1_idx]
     x_nbr_1 = x[agent_0_idx]
-       
-    # jax jitting might improve speed
-    # below gives wrong answer
-    #contrib_0 = np.einsum("ije, je -> ie", payoff_A, x_nbr_0.T)
-    #contrib_1 = np.einsum("ije, je -> ie", payoff_B, x_nbr_1.T)
-    #P[agent_0_idx] += contrib_0.T
-    #P[agent_1_idx] += contrib_1.T
-    
+
     contrib_0 = np.einsum("ije, je -> ie", payoff_A, x_nbr_0.T)
     contrib_1 = np.einsum("ije, je -> ie", payoff_B, x_nbr_1.T)
 
@@ -119,7 +130,6 @@ def _get_payoffs_general(x, edges, payoff_A, payoff_B, n_agents, n_actions):
 
 
 def _get_payoffs_no_edges(x, edges, payoff_A, payoff_B, n_agents, n_actions):
-    #P = jnp.zeros((n_agents, n_actions))
     P = np.zeros((n_agents, n_actions))
 
     agent_0_idx = edges[:, 0]
@@ -130,16 +140,9 @@ def _get_payoffs_no_edges(x, edges, payoff_A, payoff_B, n_agents, n_actions):
 
     contrib_0 = payoff_A @ x_nbr_0.T  # Shape: (n_actions, n_edges)
     contrib_1 = payoff_B @ x_nbr_1.T  # Shape: (n_actions, n_edges)
-     
+
     # CRITICAL: Use np.add.at for proper accumulation with repeated indices
     np.add.at(P, agent_0_idx, contrib_0.T)
     np.add.at(P, agent_1_idx, contrib_1.T)
- 
 
     return P
-
-
-#_get_jit_payoffs = jit(_get_payoffs_general, static_argnames=("n_agents", "n_actions"))
-#_get_jit_payoffs_no_edges = jit(
-#    _get_payoffs_no_edges, static_argnames=("n_agents", "n_actions")
-#)

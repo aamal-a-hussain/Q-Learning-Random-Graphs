@@ -7,3 +7,5 @@ heatmap_*
 er_file.sub.*
 *.zip
 *.7z
+results/
+plots/
