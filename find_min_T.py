@@ -93,7 +93,7 @@ def main():
     agent_range = range(15, 90, 5)
     game_type = 'shapley'
     n_actions = 3
-    n_iter = 3000
+    n_iter = 4000
     n_experiments = 48
     T_step = 1/64
 

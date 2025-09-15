@@ -50,7 +50,7 @@ class SatoGame(NetworkGame):
     name = "sato"
     n_actions = 3
 
-    def __init__(self, n_agents, ex=0.5, ey=-0.3):
+    def __init__(self, n_agents,ex=0.1, ey= -0.05):
         assert n_agents > 2
         self.n_agents = n_agents
         self.payoff_A = np.array([[ex, -1, 1], [1, ex, -1], [-1, 1, ex]])
