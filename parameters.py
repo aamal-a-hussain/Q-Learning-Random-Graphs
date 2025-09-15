@@ -1,4 +1,5 @@
 from datetime import datetime
+import numpy as np
 from pydantic import BaseModel, Field, model_validator
 from typing import Literal, Tuple
 
@@ -43,11 +44,15 @@ class ExperimentParameters(BaseModel):
     network_parameters: NetworkParameters
     nP: int = (30,)
     nT: int = (30,)
-    n_expt: int = (12,)
+    n_expt: int = 12
     p_range: Tuple[float, float] = (0.1, 1.0)
     T_range: Tuple[float, float] = (0.1, 3.5)
     n_refinements: int = 4
     timestamp: datetime = Field(default_factory=datetime.now)
+
+    @property
+    def Ts(self):
+        return np.linspace(self.T_range[0], self.T_range[1], self.nT)
 
 
 class RunParameters(BaseModel):
